@@ -1,3 +1,12 @@
 *.o
 *.obj
 *.DS_Store
+*.exe
+*.log
+/doomgeneric/x64/Debug/doomgeneric.tlog
+/.vs/doomgeneric/FileContentIndex/read.lock
+/.vs/doomgeneric/FileContentIndex/30b9638a-2e29-4bec-a247-c0129bbdf8c9.vsidx
+/.vs/doomgeneric/v17/ipch
+/.vs/doomgeneric/v17
+/.vs
+/doomgeneric/x64/Debug/doomgeneric.vcxproj.FileListAbsolute.txt
