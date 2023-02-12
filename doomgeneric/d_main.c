@@ -1569,6 +1569,7 @@ void D_DoomMain (void)
 	};
 	int i;
 	
+#if 0
 	if ( gamemode == shareware)
 	    I_Error(DEH_String("\nYou cannot -file with the shareware "
 			       "version. Register!"));
@@ -1579,6 +1580,8 @@ void D_DoomMain (void)
 	    for (i = 0;i < 23; i++)
 		if (W_CheckNumForName(name[i])<0)
 		    I_Error(DEH_String("\nThis is not the registered version."));
+
+#endif
     }
 
     if (W_CheckNumForName("SS_START") >= 0

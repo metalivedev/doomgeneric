@@ -152,7 +152,7 @@ void DG_DrawFrame()
 		DispatchMessageA(&msg);
 	}
 
-	StretchDIBits(s_Hdc, 0, 0, DOOMGENERIC_RESX, DOOMGENERIC_RESY, 0, 0, DOOMGENERIC_RESX, DOOMGENERIC_RESY, DG_ScreenBuffer, &s_Bmi, 0, SRCCOPY);
+	StretchDIBits(s_Hdc, 0, 0, DOOMGENERIC_RESX, DOOMGENERIC_RESY, 0, 0, DOOMGENERIC_RESX, DOOMGENERIC_RESY, DG_ScreenBuffer, &s_Bmi, DIB_RGB_COLORS, SRCCOPY);
 
 	SwapBuffers(s_Hdc);
 }
