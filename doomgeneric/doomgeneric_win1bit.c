@@ -21,6 +21,11 @@ static unsigned int s_KeyQueueReadIndex = 0;
 uint32_t* bit_ScreenBuffer = 0;
 size_t bit_ScreenBuffer_size = (DOOMGENERIC_RESX * DOOMGENERIC_RESY * 4);
 
+typedef enum {
+	FLOYD,
+	STUKI
+} dither_t;
+
 static unsigned char convertToDoomKey(unsigned char key)
 {
 	switch (key)
@@ -149,9 +154,21 @@ void DG_Init()
 	bit_ScreenBuffer = malloc(bit_ScreenBuffer_size);
 }
 
+#define PIXELOFF(x,y) (x + (y * DOOMGENERIC_RESX))
+#define RGBA(b) ((b<<24) | (b<<16) | (b<<8) | b )
+#define LOWB(n) (0xFF & n)
+
+// assumes bit_ScreenBuffer is allocated and is sized by DOOMGENERIC_RES
+void ditherPixel(unsigned int x, unsigned int y, int quanterror, int mult, int div) {
+	unsigned int offset;
+	int newpixel;
+	offset = PIXELOFF(x, y);
+	newpixel = LOWB(bit_ScreenBuffer[offset]) + quanterror * mult / div;
+	bit_ScreenBuffer[offset] = RGBA(newpixel);
+}
+
 // Take the DG_Screenbuffer and dither it
-void dither()
-{
+void dither(dither_t dithering){
 	unsigned int limit = 0;
 	unsigned int x, y, offset;
 	int oldpixel, newpixel;
@@ -161,71 +178,55 @@ void dither()
 	memcpy_s(bit_ScreenBuffer, bit_ScreenBuffer_size, DG_ScreenBuffer, bit_ScreenBuffer_size);
 
 	// The limit is needed so I don't exceed the boundaries of the image.
-	//	'steinberg':
-	//		limit = 1
-	//	Stuki limit = 2
-	limit = 1;
+	switch (dithering) {
+	case FLOYD:
+		limit = 1;
+		break;
+	case STUKI:
+		limit = 2;
+		break;
+
+	default:
+		limit = 0;
+	}
 
 	/* Dither the array to so that each value is either 0 or 255.
 		Details on the algorithm at https ://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering
 		(Stuki dithering is very similar, but slightly more complicated.)
 	*/
-#define PIXELOFF(x,y) (x + (y * DOOMGENERIC_RESX))
-#define RGBA(b) ((b<<24) | (b<<16) | (b<<8) | b )
-#define LOWB(n) (0xFF & n)
 
 	for (y = limit; y < (DOOMGENERIC_RESY - limit); y++) {
 		for (x = limit; x < (DOOMGENERIC_RESX - limit); x++) {
 			offset = PIXELOFF(x,y);
 			// It looks like the greyscale palette replicates the value for RGBA, so just look at one byte
-
-			oldpixel = (unsigned char) (0xFF & bit_ScreenBuffer[offset]);
+			oldpixel = LOWB(bit_ScreenBuffer[offset]);
 
 			newpixel = (oldpixel > 0x80) ? (char) 0xFF : (char) 0;
 			bit_ScreenBuffer[offset] = RGBA(newpixel);
 			quanterror = oldpixel - newpixel; // hmm, this is often going to be negative ... so unsigned doesn't work.
 
-			offset = PIXELOFF((x + 1), y);
-			newpixel = LOWB(bit_ScreenBuffer[offset]) + quanterror * 7 / 16;
-			bit_ScreenBuffer[offset] = RGBA(newpixel);
-
-			offset = PIXELOFF((x - 1), (y + 1));
-			newpixel = LOWB(bit_ScreenBuffer[offset]) + quanterror * 3 / 16;
-			bit_ScreenBuffer[offset] = RGBA(newpixel);
-
-			offset = PIXELOFF((x), (y + 1));
-			newpixel = LOWB(bit_ScreenBuffer[offset]) + quanterror * 5 / 16;
-			bit_ScreenBuffer[offset] = RGBA(newpixel);
-
-			offset = PIXELOFF((x + 1), (y + 1));
-			newpixel = LOWB(bit_ScreenBuffer[offset]) + quanterror / 16;
-			bit_ScreenBuffer[offset] = RGBA(newpixel);
-
+			if (dithering == FLOYD) {
+				ditherPixel(x+1, y, quanterror, 7, 16);
+				ditherPixel(x - 1, y + 1, quanterror, 3, 16);
+				ditherPixel(x, y + 1, quanterror, 5, 16);
+				ditherPixel(x + 1, y + 1, quanterror, 1, 16);
+			}
+			else if (dithering == STUKI) {
+				ditherPixel(x + 1, y, quanterror, 8, 42);
+				ditherPixel(x + 2, y, quanterror, 4, 42);
+				ditherPixel(x - 2, y + 1, quanterror, 2, 42); 
+				ditherPixel(x - 1, y + 1, quanterror, 4, 42);
+				ditherPixel(x, y + 1, quanterror, 8, 42);
+				ditherPixel(x + 1, y + 1, quanterror, 4, 42);
+				ditherPixel(x + 2, y + 1, quanterror, 2, 42);
+				ditherPixel(x - 2, y + 2, quanterror, 1, 42);
+				ditherPixel(x - 1, y + 2, quanterror, 2, 42);
+				ditherPixel(x, y + 2, quanterror, 4, 42);
+				ditherPixel(x + 1, y + 2, quanterror, 2, 42);
+				ditherPixel(x + 2, y + 2, quanterror, 1, 42);
+			}
 		}
 	}
-	/*
-				pixel[x + 1][y] = pixel[x + 1][y] + quanterror * 7 / 16
-				pixel[x - 1][y + 1] = pixel[x - 1][y + 1] + quanterror * 3 / 16
-				pixel[x][y + 1] = pixel[x][y + 1] + quanterror * 5 / 16
-				pixel[x + 1][y + 1] = pixel[x + 1][y + 1] + quanterror * 1 / 16
-			else:
-	#stuki
-		pixel[x + 1][y] = pixel[x + 1][y] + quanterror * 8 / 42
-		pixel[x + 2][y] = pixel[x + 2][y] + quanterror * 4 / 42
-		pixel[x - 2][y + 1] = pixel[x - 2][y + 1] + quanterror * 2 / 42
-		pixel[x - 1][y + 1] = pixel[x - 1][y + 1] + quanterror * 4 / 42
-		pixel[x][y + 1] = pixel[x][y + 1] + quanterror * 8 / 42
-		pixel[x + 1][y + 1] = pixel[x + 1][y + 1] + quanterror * 4 / 42
-		pixel[x + 2][y + 1] = pixel[x + 2][y + 1] + quanterror * 2 / 42
-		pixel[x - 2][y + 2] = pixel[x - 2][y + 2] + quanterror * 1 / 42
-		pixel[x - 1][y + 2] = pixel[x - 1][y + 2] + quanterror * 2 / 42
-		pixel[x][y + 2] = pixel[x][y + 2] + quanterror * 4 / 42
-		pixel[x + 1][y + 2] = pixel[x + 1][y + 2] + quanterror * 2 / 42
-		pixel[x + 2][y + 2] = pixel[x + 2][y + 2] + quanterror * 1 / 42
-		#Print the current row out of the total number of rows.
-		#Technically this number is a lie but it gives a general idea of progress.
-		print('(', y + 1, '/', height - limit, ')', end = '\r', flush = True)
-		*/
 }
 
 void DG_DrawFrame()
@@ -239,7 +240,7 @@ void DG_DrawFrame()
 		DispatchMessageA(&msg);
 	}
 
-	dither();
+	dither(STUKI);
 	StretchDIBits(s_Hdc, 0, 0, DOOMGENERIC_RESX, DOOMGENERIC_RESY, 0, 0, DOOMGENERIC_RESX, DOOMGENERIC_RESY, bit_ScreenBuffer, &s_Bmi, 0, SRCCOPY);
 
 	SwapBuffers(s_Hdc);
