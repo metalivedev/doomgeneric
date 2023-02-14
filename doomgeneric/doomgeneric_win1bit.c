@@ -22,6 +22,7 @@ uint32_t* bit_ScreenBuffer = 0;
 size_t bit_ScreenBuffer_size = (DOOMGENERIC_RESX * DOOMGENERIC_RESY * 4);
 
 typedef enum {
+	NONE,
 	FLOYD,
 	STUKI
 } dither_t;
@@ -163,7 +164,7 @@ void ditherPixel(unsigned int x, unsigned int y, int quanterror, int mult, int d
 	unsigned int offset;
 	int newpixel;
 	offset = PIXELOFF(x, y);
-	newpixel = LOWB(bit_ScreenBuffer[offset]) + (int)((quanterror * mult) / div);
+	newpixel = LOWB(bit_ScreenBuffer[offset]) + quanterror * mult / div;
 	bit_ScreenBuffer[offset] = RGBA(newpixel);
 }
 
@@ -179,6 +180,9 @@ void dither(dither_t dithering){
 
 	// The limit is needed so I don't exceed the boundaries of the image.
 	switch (dithering) {
+	case NONE:
+		return;
+
 	case FLOYD:
 		limit = 1;
 		break;
