@@ -163,7 +163,7 @@ void ditherPixel(unsigned int x, unsigned int y, int quanterror, int mult, int d
 	unsigned int offset;
 	int newpixel;
 	offset = PIXELOFF(x, y);
-	newpixel = LOWB(bit_ScreenBuffer[offset]) + quanterror * mult / div;
+	newpixel = LOWB(bit_ScreenBuffer[offset]) + (int)((quanterror * mult) / div);
 	bit_ScreenBuffer[offset] = RGBA(newpixel);
 }
 
@@ -201,7 +201,7 @@ void dither(dither_t dithering){
 			// It looks like the greyscale palette replicates the value for RGBA, so just look at one byte
 			oldpixel = LOWB(bit_ScreenBuffer[offset]);
 
-			newpixel = (oldpixel > 0x80) ? (char) 0xFF : (char) 0;
+			newpixel = (oldpixel > 0x80) ? 0xFF : 0;
 			bit_ScreenBuffer[offset] = RGBA(newpixel);
 			quanterror = oldpixel - newpixel; // hmm, this is often going to be negative ... so unsigned doesn't work.
 
